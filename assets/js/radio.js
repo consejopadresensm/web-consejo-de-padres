@@ -1,18 +1,24 @@
 /**
- * radio.js - Reproductor de la Emisora Sonaría (Versión Ultra-Robusta)
+ * radio.js - Reproductor de la Emisora Sonaría (Versión Ultra-Robusta v2)
+ * Para el sitio del Consejo de Padres ENSM
+ * 
+ * Mejoras: Reconexión inteligente, tolerancia a gaps entre canciones,
+ * backoff exponencial, y watchdog basado en datos reales.
  */
 
 class SonariaRadio {
     constructor() {
         this.streamUrl = 'https://radio.sonariaradio.online/radio.mp3';
         this.isPlaying = false;
-        this.audio = new Audio();
-        this.audio.crossOrigin = "anonymous";
+        this.userWantsPlay = false;
+        this.audio = null;
         
-        // Watchdog para detectar cortes
-        this.lastTime = 0;
-        this.stallCount = 0;
-        this.watchdogInterval = null;
+        // Reconexión inteligente
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 50;
+        this.reconnectTimer = null;
+        this.watchdogTimer = null;
+        this.lastDataTime = 0;
 
         this.createPlayerUI();
         this.initListeners();
@@ -43,93 +49,146 @@ class SonariaRadio {
         document.body.insertAdjacentHTML('beforeend', playerHtml);
     }
 
-    initListeners() {
-        const playBtn = document.getElementById('radio-play-btn');
-        const icon = document.getElementById('radio-icon');
-        const disk = document.getElementById('radio-disk');
+    createAudio() {
+        if (this.audio) {
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
+        }
+        this.audio = new Audio();
+        this.audio.crossOrigin = "anonymous";
+        this.audio.preload = "none";
 
-        playBtn.addEventListener('click', () => {
-            if (this.isPlaying) {
+        this.audio.addEventListener('playing', () => {
+            this.reconnectAttempts = 0;
+            this.lastDataTime = Date.now();
+            this.isPlaying = true;
+            document.getElementById('radio-icon').textContent = "||";
+            document.getElementById('radio-disk').classList.add('animate-spin-slow');
+            this.showStatus('Sintonizado ✓');
+            this.startWatchdog();
+        });
+
+        this.audio.addEventListener('waiting', () => {
+            if (this.userWantsPlay) this.showStatus('Cargando buffer...');
+        });
+
+        this.audio.addEventListener('error', () => {
+            if (this.userWantsPlay) this.scheduleReconnect("Error de señal");
+        });
+
+        this.audio.addEventListener('stalled', () => {
+            if (this.userWantsPlay && Date.now() - this.lastDataTime > 30000) {
+                this.scheduleReconnect("Señal débil");
+            }
+        });
+
+        this.audio.addEventListener('timeupdate', () => {
+            this.lastDataTime = Date.now();
+            this.reconnectAttempts = 0;
+        });
+
+        this.audio.addEventListener('progress', () => {
+            this.lastDataTime = Date.now();
+        });
+    }
+
+    initListeners() {
+        document.getElementById('radio-play-btn').addEventListener('click', () => {
+            if (this.userWantsPlay) {
                 this.stop();
             } else {
                 this.start();
             }
         });
-
-        // Eventos de red
-        this.audio.addEventListener('waiting', () => this.showStatus('Cargando buffer...'));
-        this.audio.addEventListener('error', () => this.handleError());
-        this.audio.addEventListener('stalled', () => this.handleError());
     }
 
     start() {
-        const icon = document.getElementById('radio-icon');
-        const disk = document.getElementById('radio-disk');
-        
+        this.userWantsPlay = true;
+        this.reconnectAttempts = 0;
+        this.connectStream();
+    }
+
+    connectStream() {
+        this.createAudio();
         this.showStatus('Sintonizando...');
-        this.audio.src = this.streamUrl + '?t=' + Date.now();
+        this.audio.src = this.streamUrl + '?nocache=' + Date.now();
         
         this.audio.play().then(() => {
-            this.isPlaying = true;
-            icon.textContent = "||";
-            disk.classList.add('animate-spin-slow');
-            this.showStatus('Sintonizado');
-            this.startWatchdog();
+            // OK - el evento 'playing' se encargará
         }).catch(err => {
-            console.error("Error Radio:", err);
-            this.showStatus('Error de conexión');
+            console.warn("📡 [Radio] Error al iniciar:", err.message);
+            if (this.userWantsPlay) {
+                this.scheduleReconnect("Reintentando");
+            }
         });
     }
 
     stop() {
-        const icon = document.getElementById('radio-icon');
-        const disk = document.getElementById('radio-disk');
-        
-        this.audio.pause();
-        this.audio.src = ""; 
+        this.userWantsPlay = false;
         this.isPlaying = false;
-        icon.textContent = "▶";
-        disk.classList.remove('animate-spin-slow');
-        this.showStatus('Pausado');
         this.stopWatchdog();
+        this.clearReconnectTimer();
+        
+        if (this.audio) {
+            this.audio.pause();
+            this.audio.removeAttribute('src');
+            this.audio.load();
+        }
+        
+        document.getElementById('radio-icon').textContent = "▶";
+        document.getElementById('radio-disk').classList.remove('animate-spin-slow');
+        this.showStatus('Pausado');
+        this.reconnectAttempts = 0;
     }
 
-    handleError() {
-        if (!this.isPlaying) return;
+    scheduleReconnect(reason) {
+        if (!this.userWantsPlay) return;
+        if (this.reconnectTimer) return;
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this.showStatus('Sin señal');
+            this.stop();
+            return;
+        }
+
+        this.reconnectAttempts++;
+        const delay = Math.min(3000 + (this.reconnectAttempts * 2000), 10000);
         
-        console.warn("📡 [Radio] Corte detectado. Reconectando en 5s...");
-        this.showStatus('Reconectando...');
-        
-        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        console.warn(`📡 [Radio] ${reason}. Reintento #${this.reconnectAttempts} en ${delay/1000}s`);
+        this.showStatus(`Reconectando (#${this.reconnectAttempts})...`);
+
         this.reconnectTimer = setTimeout(() => {
-            if (this.isPlaying) this.start();
-        }, 5000); // Reintento cada 5 segundos
+            this.reconnectTimer = null;
+            if (this.userWantsPlay) this.connectStream();
+        }, delay);
     }
 
     startWatchdog() {
         this.stopWatchdog();
-        this.lastTime = -1;
-        this.stallCount = 0;
-        this.watchdogInterval = setInterval(() => {
-            if (this.isPlaying && !this.audio.paused) {
-                if (this.audio.currentTime === this.lastTime) {
-                    this.stallCount++;
-                    if (this.stallCount > 8) { // 8 segundos sin avance real
-                        console.warn("Watchdog: Señal estancada, forzando reinicio...");
-                        this.handleError();
-                    }
-                } else {
-                    this.lastTime = this.audio.currentTime;
-                    this.stallCount = 0;
-                }
+        this.lastDataTime = Date.now();
+        
+        this.watchdogTimer = setInterval(() => {
+            if (!this.userWantsPlay || !this.isPlaying) return;
+            
+            if (Date.now() - this.lastDataTime > 45000) {
+                console.warn("📡 Watchdog: Sin datos por 45s");
+                this.stopWatchdog();
+                this.scheduleReconnect("Señal perdida");
             }
-        }, 1000);
+        }, 5000);
     }
 
     stopWatchdog() {
-        if (this.watchdogInterval) {
-            clearInterval(this.watchdogInterval);
-            this.watchdogInterval = null;
+        if (this.watchdogTimer) {
+            clearInterval(this.watchdogTimer);
+            this.watchdogTimer = null;
+        }
+    }
+
+    clearReconnectTimer() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
         }
     }
 
