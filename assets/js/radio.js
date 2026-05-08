@@ -216,34 +216,21 @@ class SonariaRadio {
     }
 }
 
-// Inicialización Singleton compatible con Turbo
-if (!window.sonariaRadioInstance) {
-    window.sonariaRadioInstance = new SonariaRadio();
-}
-
-// Re-vincular eventos si Turbo refresca el body (aunque el elemento sea permanente)
-document.addEventListener('turbo:load', () => {
-    if (window.sonariaRadioInstance) {
-        // Asegurarse de que el botón tenga el listener
-        const btn = document.getElementById('radio-play-btn');
-        if (btn) {
-            // Eliminar listeners viejos para no duplicar
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', () => {
-                if (window.sonariaRadioInstance.userWantsPlay) {
-                    window.sonariaRadioInstance.stop();
-                } else {
-                    window.sonariaRadioInstance.start();
-                }
-            });
-        }
-    }
-});
-
-// Fallback para carga normal
-document.addEventListener('DOMContentLoaded', () => {
+// Función de inicialización segura
+function initSonariaRadio() {
     if (!window.sonariaRadioInstance) {
         window.sonariaRadioInstance = new SonariaRadio();
+    } else {
+        // Si ya existe la instancia, solo nos aseguramos de que el UI exista
+        window.sonariaRadioInstance.createPlayerUI();
     }
-});
+}
+
+// Escuchar tanto la carga inicial como las navegaciones de Turbo
+document.addEventListener('turbo:load', initSonariaRadio);
+document.addEventListener('DOMContentLoaded', initSonariaRadio);
+
+// Fallback inmediato por si acaso
+if (document.body) {
+    initSonariaRadio();
+}
