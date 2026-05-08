@@ -19,6 +19,11 @@ class SonariaRadio {
         this.reconnectTimer = null;
         this.watchdogTimer = null;
         this.lastDataTime = 0;
+        
+        // Audio de emergencia
+        this.emergencyAudio = null;
+        this.basePath = window.location.pathname.includes('/manual/') ? '../' : '';
+        this.emergencyUrl = `${this.basePath}assets/audio/emergencia.mp3`;
 
         this.createPlayerUI();
         this.initListeners();
@@ -68,6 +73,7 @@ class SonariaRadio {
             document.getElementById('radio-disk').classList.add('animate-spin-slow');
             this.showStatus('Sintonizado ✓');
             this.startWatchdog();
+            this.stopEmergency();
         });
 
         this.audio.addEventListener('waiting', () => {
@@ -149,6 +155,7 @@ class SonariaRadio {
         document.getElementById('radio-disk').classList.remove('animate-spin-slow');
         this.showStatus('Pausado');
         this.reconnectAttempts = 0;
+        this.stopEmergency();
     }
 
     scheduleReconnect(reason) {
@@ -170,6 +177,32 @@ class SonariaRadio {
             this.reconnectTimer = null;
             if (this.userWantsPlay) this.connectStream();
         }, delay);
+
+        this.startEmergency();
+    }
+
+    startEmergency() {
+        if (!this.userWantsPlay) return;
+        if (this.emergencyAudio && !this.emergencyAudio.paused) return;
+
+        console.log("📢 [Radio] Iniciando audio de emergencia...");
+        if (!this.emergencyAudio) {
+            this.emergencyAudio = new Audio(this.emergencyUrl);
+            this.emergencyAudio.loop = true;
+            this.emergencyAudio.volume = 0.8;
+        }
+        
+        this.emergencyAudio.play().catch(err => {
+            console.warn("⚠️ [Radio] No se pudo reproducir el audio de emergencia:", err.message);
+        });
+    }
+
+    stopEmergency() {
+        if (this.emergencyAudio) {
+            console.log("⏹️ [Radio] Deteniendo audio de emergencia.");
+            this.emergencyAudio.pause();
+            this.emergencyAudio.currentTime = 0;
+        }
     }
 
     startWatchdog() {
