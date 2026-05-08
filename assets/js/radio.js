@@ -57,7 +57,7 @@ class SonariaRadio {
             this.audio.load();
         }
         this.audio = new Audio();
-        this.audio.crossOrigin = "anonymous";
+        // this.audio.crossOrigin = "anonymous"; // Desactivado para evitar bloqueos CORS con Icecast nativo
         this.audio.preload = "none";
 
         this.audio.addEventListener('playing', () => {
