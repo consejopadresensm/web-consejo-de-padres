@@ -8,7 +8,7 @@
 
 class SonariaRadio {
     constructor() {
-        this.streamUrl = 'https://radio.sonariaradio.online/radio.mp3';
+        this.streamUrl = 'https://radio.sonariaradio.online/stream';
         this.isPlaying = false;
         this.userWantsPlay = false;
         this.audio = null;
@@ -25,11 +25,12 @@ class SonariaRadio {
     }
 
     createPlayerUI() {
+        const basePath = window.location.pathname.includes('/manual/') ? '../' : '';
         const playerHtml = `
             <div id="sonaria-player" class="fixed bottom-6 left-6 z-[60] bg-white/10 backdrop-blur-md border border-white/20 rounded-full p-2 shadow-2xl transition-all duration-500 hover:bg-white/20 group">
                 <div class="flex items-center gap-3 pr-4">
                     <div id="radio-disk" class="w-12 h-12 rounded-full bg-[#1e3a5f] flex items-center justify-center relative overflow-hidden shadow-inner border border-white/30">
-                        <img src="assets/img/logo_sonaria.png" alt="Sonaria" class="w-full h-full object-cover z-10" id="radio-logo">
+                        <img src="${basePath}assets/img/logo_sonaria.png" alt="Sonaria" class="w-full h-full object-cover z-10" id="radio-logo">
                     </div>
                     
                     <div class="flex flex-col bg-black/40 backdrop-blur-sm px-3 py-1 rounded-xl border border-white/10 shadow-lg">
@@ -101,10 +102,17 @@ class SonariaRadio {
                 this.start();
             }
         });
+
+        // Auto-reanudación si estaba sonando en la página anterior
+        if (sessionStorage.getItem('sonariaPlaying') === 'true') {
+            console.log("📡 [Radio] Reanudando reproducción de sesión anterior...");
+            this.start();
+        }
     }
 
     start() {
         this.userWantsPlay = true;
+        sessionStorage.setItem('sonariaPlaying', 'true');
         this.reconnectAttempts = 0;
         this.connectStream();
     }
@@ -126,6 +134,7 @@ class SonariaRadio {
 
     stop() {
         this.userWantsPlay = false;
+        sessionStorage.setItem('sonariaPlaying', 'false');
         this.isPlaying = false;
         this.stopWatchdog();
         this.clearReconnectTimer();
