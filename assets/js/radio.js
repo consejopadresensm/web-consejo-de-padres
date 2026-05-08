@@ -8,7 +8,7 @@
 
 class SonariaRadio {
     constructor() {
-        this.streamUrl = 'https://radio.sonariaradio.online/stream';
+        this.streamUrl = 'https://radio.sonariaradio.online/radio.mp3';
         this.isPlaying = false;
         this.userWantsPlay = false;
         this.audio = null;
