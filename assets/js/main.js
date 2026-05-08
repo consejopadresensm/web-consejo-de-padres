@@ -2,9 +2,8 @@
  * main.js - Inicializa todas las secciones dinamicas de index.html
  */
 
-// Escuchar tanto la carga inicial como las navegaciones de Turbo
-document.addEventListener('turbo:load', async () => {
-    console.log('[Main] Inicializando componentes...');
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('[Main] DOMContentLoaded iniciado');
 
     initMobileMenu();
     initNavbarScroll();

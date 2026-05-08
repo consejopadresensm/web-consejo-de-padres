@@ -25,29 +25,25 @@ class SonariaRadio {
     }
 
     createPlayerUI() {
-        if (document.getElementById('sonaria-persistent-container')) return;
-
         const basePath = window.location.pathname.includes('/manual/') ? '../' : '';
         const playerHtml = `
-            <div id="sonaria-persistent-container" data-turbo-permanent>
-                <div id="sonaria-player" class="fixed bottom-6 left-6 z-[60] bg-white/10 backdrop-blur-md border border-white/20 rounded-full p-2 shadow-2xl transition-all duration-500 hover:bg-white/20 group">
-                    <div class="flex items-center gap-3 pr-4">
-                        <div id="radio-disk" class="w-12 h-12 rounded-full bg-[#1e3a5f] flex items-center justify-center relative overflow-hidden shadow-inner border border-white/30">
-                            <img src="${basePath}assets/img/logo_sonaria.png" alt="Sonaria" class="w-full h-full object-cover z-10" id="radio-logo">
-                        </div>
-                        
-                        <div class="flex flex-col bg-black/40 backdrop-blur-sm px-3 py-1 rounded-xl border border-white/10 shadow-lg">
-                            <span class="text-[9px] uppercase tracking-widest text-white/90 font-bold leading-none">En Vivo</span>
-                            <span class="text-white font-bold text-xs leading-tight" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Emisora Sonaría</span>
-                        </div>
+            <div id="sonaria-player" class="fixed bottom-6 left-6 z-[60] bg-white/10 backdrop-blur-md border border-white/20 rounded-full p-2 shadow-2xl transition-all duration-500 hover:bg-white/20 group">
+                <div class="flex items-center gap-3 pr-4">
+                    <div id="radio-disk" class="w-12 h-12 rounded-full bg-[#1e3a5f] flex items-center justify-center relative overflow-hidden shadow-inner border border-white/30">
+                        <img src="${basePath}assets/img/logo_sonaria.png" alt="Sonaria" class="w-full h-full object-cover z-10" id="radio-logo">
+                    </div>
+                    
+                    <div class="flex flex-col bg-black/40 backdrop-blur-sm px-3 py-1 rounded-xl border border-white/10 shadow-lg">
+                        <span class="text-[9px] uppercase tracking-widest text-white/90 font-bold leading-none">En Vivo</span>
+                        <span class="text-white font-bold text-xs leading-tight" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">Emisora Sonaría</span>
+                    </div>
 
-                        <button id="radio-play-btn" class="w-10 h-10 rounded-full bg-white text-[#1e3a5f] flex items-center justify-center hover:scale-110 transition-transform shadow-lg">
-                            <span id="radio-icon">▶</span>
-                        </button>
-                    </div>
-                    <div id="radio-status" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 transition-opacity pointer-events-none whitespace-nowrap">
-                        Conectando...
-                    </div>
+                    <button id="radio-play-btn" class="w-10 h-10 rounded-full bg-white text-[#1e3a5f] flex items-center justify-center hover:scale-110 transition-transform shadow-lg">
+                        <span id="radio-icon">▶</span>
+                    </button>
+                </div>
+                <div id="radio-status" class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 transition-opacity pointer-events-none whitespace-nowrap">
+                    Conectando...
                 </div>
             </div>
         `;
@@ -216,21 +212,6 @@ class SonariaRadio {
     }
 }
 
-// Función de inicialización segura
-function initSonariaRadio() {
-    if (!window.sonariaRadioInstance) {
-        window.sonariaRadioInstance = new SonariaRadio();
-    } else {
-        // Si ya existe la instancia, solo nos aseguramos de que el UI exista
-        window.sonariaRadioInstance.createPlayerUI();
-    }
-}
-
-// Escuchar tanto la carga inicial como las navegaciones de Turbo
-document.addEventListener('turbo:load', initSonariaRadio);
-document.addEventListener('DOMContentLoaded', initSonariaRadio);
-
-// Fallback inmediato por si acaso
-if (document.body) {
-    initSonariaRadio();
-}
+document.addEventListener('DOMContentLoaded', () => {
+    new SonariaRadio();
+});
