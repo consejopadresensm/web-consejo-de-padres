@@ -65,7 +65,21 @@ class SonariaRadio {
         // this.audio.crossOrigin = "anonymous"; // Desactivado para evitar bloqueos CORS con Icecast nativo
         this.audio.preload = "none";
 
+        this.audio.addEventListener('waiting', () => {
+            if (this.userWantsPlay) {
+                this.showStatus('Cargando buffer...');
+                // Si esperamos más de 7 segundos cargando, disparar emergencia
+                if (this.waitingTimer) clearTimeout(this.waitingTimer);
+                this.waitingTimer = setTimeout(() => {
+                    if (this.userWantsPlay) {
+                        this.scheduleReconnect("Buffer agotado");
+                    }
+                }, 7000);
+            }
+        });
+
         this.audio.addEventListener('playing', () => {
+            if (this.waitingTimer) clearTimeout(this.waitingTimer);
             this.reconnectAttempts = 0;
             this.lastDataTime = Date.now();
             this.isPlaying = true;
@@ -76,17 +90,13 @@ class SonariaRadio {
             this.stopEmergency();
         });
 
-        this.audio.addEventListener('waiting', () => {
-            if (this.userWantsPlay) this.showStatus('Cargando buffer...');
-        });
-
         this.audio.addEventListener('error', () => {
             if (this.userWantsPlay) this.scheduleReconnect("Error de señal");
         });
 
         this.audio.addEventListener('stalled', () => {
-            if (this.userWantsPlay && Date.now() - this.lastDataTime > 30000) {
-                this.scheduleReconnect("Señal débil");
+            if (this.userWantsPlay && Date.now() - this.lastDataTime > 8000) {
+                this.scheduleReconnect("Señal estancada");
             }
         });
 
@@ -212,8 +222,8 @@ class SonariaRadio {
         this.watchdogTimer = setInterval(() => {
             if (!this.userWantsPlay || !this.isPlaying) return;
             
-            if (Date.now() - this.lastDataTime > 45000) {
-                console.warn("📡 Watchdog: Sin datos por 45s");
+            if (Date.now() - this.lastDataTime > 15000) {
+                console.warn("📡 Watchdog: Sin datos por 15s");
                 this.stopWatchdog();
                 this.scheduleReconnect("Señal perdida");
             }

@@ -35,6 +35,7 @@
     </script>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/ruleta.css">
 </head>
 
 <body class="bg-white">
@@ -671,6 +672,56 @@
         </div>
     </section>
 
+    <!-- Ruleta Pedagogica -->
+    <section id="ruleta-pedagogica" class="py-16 md:py-24 bg-white overflow-hidden border-t border-gray-100">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center mb-12">
+                <h2 class="section-title">Ruleta de Propósitos Pedagógicos</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">Gira la ruleta y descubre un propósito para fortalecer el vínculo educativo en familia.</p>
+            </div>
+
+            <div class="flex flex-col items-center justify-center">
+                <div id="wheel-container" class="relative w-full max-w-[900px] aspect-square">
+                    <!-- Canvas Layer (Bottom) -->
+                    <canvas id="wheelCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                    
+                    <!-- Video Layer (Top) -->
+                    <div class="video-overlay absolute inset-0 pointer-events-none flex items-center justify-center">
+                        <img id="video-idle" src="assets/video/sanagustin1.gif" class="w-full h-full object-contain" alt="San Agustín Idle">
+                        <img id="video-active" src="assets/video/sanagustin2.gif" class="w-full h-full object-contain hidden" alt="San Agustín Activo">
+                    </div>
+                </div>
+
+                <div class="-mt-12 md:-mt-32 relative z-20">
+                    <button id="spin-btn" class="bg-[#e8792f] hover:bg-[#d66a20] text-white font-bold py-4 px-10 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ¡GIRAR RULETA!
+                    </button>
+                </div>
+
+                <!-- Result Overlay (Glassmorphism) -->
+                <div id="result-overlay" class="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md hidden flex items-center justify-center p-6">
+                    <div id="result-content" class="bg-white/10 border border-white/20 p-8 rounded-3xl max-w-lg w-full text-center text-white shadow-2xl transform scale-90 opacity-0 transition-all duration-500">
+                        <div class="mb-4">
+                            <span class="bg-[#f5a623] text-white text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full">Resultado</span>
+                        </div>
+                        <h3 class="text-3xl font-serif font-bold text-white mb-6">Nuestro Propósito:</h3>
+                        <p id="result-text" class="text-xl leading-relaxed mb-8 font-medium italic"></p>
+                        
+                        <!-- Sección de Reto -->
+                        <div class="bg-white/10 rounded-2xl p-6 mb-10 border border-white/5">
+                            <h4 class="text-[#f5a623] font-bold text-sm uppercase tracking-widest mb-2">📸 Reto Fotográfico</h4>
+                            <p id="reto-text" class="text-sm text-white/90"></p>
+                        </div>
+
+                        <button id="close-result" class="w-full bg-white text-primary font-bold py-4 px-6 rounded-xl hover:bg-gray-100 transition shadow-lg">
+                            ¡Aceptamos el reto!
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer py-12">
         <div class="max-w-7xl mx-auto px-4">
@@ -719,8 +770,8 @@
 
 
 
-    <script src="assets/js/radio.js"></script>
     <script src="assets/js/sheets.js"></script>
+    <script src="assets/js/ruleta.js"></script>
     <script src="assets/js/timeline.js"></script>
     <script src="assets/js/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>

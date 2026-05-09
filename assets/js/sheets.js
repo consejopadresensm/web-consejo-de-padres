@@ -206,3 +206,78 @@ async function getEnlaces(grupo = null) {
     if (grupo) data = data.filter(item => (item.grupo || '').toLowerCase() === grupo.toLowerCase());
     return data.sort((a, b) => parseInt(a.orden || 0) - parseInt(b.orden || 0));
 }
+
+async function buscarIconoAutomatico(tema) {
+    try {
+        const palabraClave = encodeURIComponent(tema.split(' ')[0]); 
+        const respuesta = await fetch(`https://api.iconify.design/search?query=${palabraClave}&limit=1`);
+        const datos = await respuesta.json();
+        
+        if (datos && datos.icons && datos.icons.length > 0) {
+            // Iconify devuelve el nombre completo (prefijo:icono), construimos la URL:
+            const parts = datos.icons[0].split(':');
+            if(parts.length === 2) {
+                return `https://api.iconify.design/${parts[0]}/${parts[1]}.svg`;
+            }
+        }
+        return '';
+    } catch (error) {
+        return '';
+    }
+}
+
+async function getPropositos() {
+    try {
+        let data = await getSheetData('propositos');
+        
+        // Diccionario de seguridad por si el CSV exporta vacío el =IMAGE()
+        const iconosFallback = {
+            "Huella Digital": "https://cdn-icons-png.flaticon.com/512/977/977661.png",
+            "Empatía Online": "https://cdn-icons-png.flaticon.com/512/19033/19033418.png",
+            "Sueños a Futuro": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
+            "Filtro de Ayuda": "https://cdn-icons-png.flaticon.com/512/616/616490.png",
+            "Talento Local": "https://cdn-icons-png.flaticon.com/512/2583/2583344.png",
+            "Privacidad Total": "https://cdn-icons-png.flaticon.com/512/3064/3064197.png",
+            "Resiliencia": "https://cdn-icons-png.flaticon.com/512/742/742751.png",
+            "Desconexión": "https://cdn-icons-png.flaticon.com/512/483/483947.png",
+            "Valores ENSM": "https://cdn-icons-png.flaticon.com/512/2436/2436874.png",
+            "Mapa de Metas": "https://cdn-icons-png.flaticon.com/512/3022/3022256.png"
+        };
+
+        const filtrados = data.filter(item => item && (item['propósito (para la ruleta)'] || item['texto']));
+        
+        const promesas = filtrados.map(async item => {
+            const tema = item['tema'] || '';
+            let imgRaw = item['url figura'] || item['imagen'] || item['figura'] || '';
+            
+            // 1. Extraer URL de la hoja
+            const imgMatch = imgRaw.match(/https?:\/\/[^"\')]+/);
+            let imagenUrl = imgMatch ? imgMatch[0] : imgRaw;
+            
+            // 2. Usar diccionario de respaldo
+            if (!imagenUrl && iconosFallback[tema]) {
+                imagenUrl = iconosFallback[tema];
+            }
+            
+            // 3. Buscar automáticamente en Iconify si no hay icono
+            if (!imagenUrl && tema) {
+                imagenUrl = await buscarIconoAutomatico(tema);
+            }
+
+            return {
+                texto: item['propósito (para la ruleta)'] || item['texto'],
+                tema: tema,
+                reto: item['reto fotográfico (muro de evidencias)'] || item['reto'] || '',
+                imagen: imagenUrl,
+                visible: (item.visible || 'si').toLowerCase() === 'si'
+            };
+        });
+
+        const resultados = await Promise.all(promesas);
+        return resultados.filter(item => item.visible);
+
+    } catch (error) {
+        console.error('Error en getPropositos:', error);
+        return [];
+    }
+}
