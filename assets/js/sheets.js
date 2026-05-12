@@ -5,7 +5,7 @@
 const SHEETS_ID = '1AxVIB1Kp8SK1Yvw356Pl3GjvzOIkq0g1kng_8YmnA2s';
 const BASE_URL = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=`;
 
-async function getSheetData(sheetName) {
+export async function getSheetData(sheetName) {
     try {
         const response = await fetch(BASE_URL + encodeURIComponent(sheetName));
         const csvText = await response.text();
@@ -19,7 +19,7 @@ async function getSheetData(sheetName) {
 /**
  * Parsea una cadena de fecha de forma robusta y limpia
  */
-function parseDate(dateStr) {
+export function parseDate(dateStr) {
     if (!dateStr) return new Date(0);
     // Eliminar comillas, BOM y otros caracteres invisibles que envia Google Sheets
     const s = String(dateStr).replace(/["\u200B-\u200D\uFEFF]/g, '').trim();
@@ -42,7 +42,7 @@ function parseDate(dateStr) {
     return isNaN(d.getTime()) ? new Date(0) : d;
 }
 
-function parseCSV(csvText) {
+export function parseCSV(csvText) {
     const lines = csvText.split('\n').map(l => l.trim()).filter(l => l !== '');
     if (lines.length === 0) return [];
     const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
@@ -85,28 +85,31 @@ function parseCSVLine(line) {
     return result;
 }
 
-async function getConfig(clave) {
+export async function getConfig(clave) {
     const data = await getSheetData('config');
     const row = data.find(item => item.clave === clave);
     return row ? row.valor : null;
 }
 
-async function getActividades(filtros = {}) {
+export async function getActivities(filtros = {}) {
     try {
         let data = await getSheetData('actividades');
 
-        // Filtro visible opcional (solo si el campo existe)
+        // Filtro visible opcional
         data = data.filter(item => {
             if (!item) return false;
-            // Si no hay campo visible, no filtrar por esto
             if (item.visible === undefined || item.visible === '') return true;
             return (item.visible || '').toLowerCase() === 'si';
         });
 
-        if (filtros.soloFuturas !== false) {
+        // Solo filtrar por fecha si el filtro está explícitamente activo y la fecha es válida
+        if (filtros.soloFuturas === true) {
             const now = new Date();
             now.setHours(0,0,0,0);
-            data = data.filter(item => parseDate(item.fecha).getTime() >= now.getTime());
+            data = data.filter(item => {
+                const d = parseDate(item.fecha || item['fecha / hora']);
+                return d.getTime() === 0 || d.getTime() >= now.getTime();
+            });
         }
 
         if (filtros.destacado) {
@@ -117,9 +120,9 @@ async function getActividades(filtros = {}) {
             data = data.filter(item => (item.estado || '').toLowerCase() === filtros.estado.toLowerCase());
         }
 
-        return data.sort((a, b) => parseDate(a.fecha).getTime() - parseDate(b.fecha).getTime());
+        return data.sort((a, b) => parseDate(a.fecha || a['fecha / hora']).getTime() - parseDate(b.fecha || b['fecha / hora']).getTime());
     } catch (error) {
-        console.error('Error en getActividades:', error);
+        console.error('Error en getActivities:', error);
         return [];
     }
 }
@@ -207,77 +210,4 @@ async function getEnlaces(grupo = null) {
     return data.sort((a, b) => parseInt(a.orden || 0) - parseInt(b.orden || 0));
 }
 
-async function buscarIconoAutomatico(tema) {
-    try {
-        const palabraClave = encodeURIComponent(tema.split(' ')[0]); 
-        const respuesta = await fetch(`https://api.iconify.design/search?query=${palabraClave}&limit=1`);
-        const datos = await respuesta.json();
-        
-        if (datos && datos.icons && datos.icons.length > 0) {
-            // Iconify devuelve el nombre completo (prefijo:icono), construimos la URL:
-            const parts = datos.icons[0].split(':');
-            if(parts.length === 2) {
-                return `https://api.iconify.design/${parts[0]}/${parts[1]}.svg`;
-            }
-        }
-        return '';
-    } catch (error) {
-        return '';
-    }
-}
 
-async function getPropositos() {
-    try {
-        let data = await getSheetData('propositos');
-        
-        // Diccionario de seguridad por si el CSV exporta vacío el =IMAGE()
-        const iconosFallback = {
-            "Huella Digital": "https://cdn-icons-png.flaticon.com/512/977/977661.png",
-            "Empatía Online": "https://cdn-icons-png.flaticon.com/512/19033/19033418.png",
-            "Sueños a Futuro": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
-            "Filtro de Ayuda": "https://cdn-icons-png.flaticon.com/512/616/616490.png",
-            "Talento Local": "https://cdn-icons-png.flaticon.com/512/2583/2583344.png",
-            "Privacidad Total": "https://cdn-icons-png.flaticon.com/512/3064/3064197.png",
-            "Resiliencia": "https://cdn-icons-png.flaticon.com/512/742/742751.png",
-            "Desconexión": "https://cdn-icons-png.flaticon.com/512/483/483947.png",
-            "Valores ENSM": "https://cdn-icons-png.flaticon.com/512/2436/2436874.png",
-            "Mapa de Metas": "https://cdn-icons-png.flaticon.com/512/3022/3022256.png"
-        };
-
-        const filtrados = data.filter(item => item && (item['propósito (para la ruleta)'] || item['texto']));
-        
-        const promesas = filtrados.map(async item => {
-            const tema = item['tema'] || '';
-            let imgRaw = item['url figura'] || item['imagen'] || item['figura'] || '';
-            
-            // 1. Extraer URL de la hoja
-            const imgMatch = imgRaw.match(/https?:\/\/[^"\')]+/);
-            let imagenUrl = imgMatch ? imgMatch[0] : imgRaw;
-            
-            // 2. Usar diccionario de respaldo
-            if (!imagenUrl && iconosFallback[tema]) {
-                imagenUrl = iconosFallback[tema];
-            }
-            
-            // 3. Buscar automáticamente en Iconify si no hay icono
-            if (!imagenUrl && tema) {
-                imagenUrl = await buscarIconoAutomatico(tema);
-            }
-
-            return {
-                texto: item['propósito (para la ruleta)'] || item['texto'],
-                tema: tema,
-                reto: item['reto fotográfico (muro de evidencias)'] || item['reto'] || '',
-                imagen: imagenUrl,
-                visible: (item.visible || 'si').toLowerCase() === 'si'
-            };
-        });
-
-        const resultados = await Promise.all(promesas);
-        return resultados.filter(item => item.visible);
-
-    } catch (error) {
-        console.error('Error en getPropositos:', error);
-        return [];
-    }
-}
