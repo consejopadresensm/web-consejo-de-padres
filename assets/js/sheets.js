@@ -5,7 +5,7 @@
 const SHEETS_ID = '1AxVIB1Kp8SK1Yvw356Pl3GjvzOIkq0g1kng_8YmnA2s';
 const BASE_URL = `https://docs.google.com/spreadsheets/d/${SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=`;
 
-export async function getSheetData(sheetName) {
+async function getSheetData(sheetName) {
     try {
         const response = await fetch(BASE_URL + encodeURIComponent(sheetName));
         const csvText = await response.text();
@@ -19,7 +19,7 @@ export async function getSheetData(sheetName) {
 /**
  * Parsea una cadena de fecha de forma robusta y limpia
  */
-export function parseDate(dateStr) {
+function parseDate(dateStr) {
     if (!dateStr) return new Date(0);
     // Eliminar comillas, BOM y otros caracteres invisibles que envia Google Sheets
     const s = String(dateStr).replace(/["\u200B-\u200D\uFEFF]/g, '').trim();
@@ -42,7 +42,7 @@ export function parseDate(dateStr) {
     return isNaN(d.getTime()) ? new Date(0) : d;
 }
 
-export function parseCSV(csvText) {
+function parseCSV(csvText) {
     const lines = csvText.split('\n').map(l => l.trim()).filter(l => l !== '');
     if (lines.length === 0) return [];
     const headers = parseCSVLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
@@ -85,13 +85,13 @@ function parseCSVLine(line) {
     return result;
 }
 
-export async function getConfig(clave) {
+async function getConfig(clave) {
     const data = await getSheetData('config');
     const row = data.find(item => item.clave === clave);
     return row ? row.valor : null;
 }
 
-export async function getActivities(filtros = {}) {
+async function getActividades(filtros = {}) {
     try {
         let data = await getSheetData('actividades');
 
